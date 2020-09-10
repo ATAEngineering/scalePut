@@ -1,0 +1,119 @@
+#!/usr/bin/python
+
+# Copyright(C) 2019, ATA Engineering, Inc.
+#
+# This program is free software you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+# This script scales a binary put file from Loci/CHEM
+# The spatial coordinates and/or flow variables can be scaled
+
+import h5py
+import argparse
+
+def ScaleScalar(fin, fout, name, scale):
+    var = fin.get(name + "/data")
+    for v in var[:]:
+        v *= scale
+    CopyGroup(fin, fout, name)
+
+def ScaleVector(fin, fout, name, scale):
+    var = fin.get(name + "/data")
+    for v in var[:]:
+        v[0] *= scale[0]
+        v[1] *= scale[1]
+        v[2] *= scale[2]
+    CopyGroup(fin, fout, name)
+
+def CopyGroup(fin, fout, name):
+    group_path = fin[name].parent.name
+    group_id = fout.require_group(group_path)
+    fin.copy(name, group_id)
+
+
+def main():
+    # set up command line parsing
+    parser = argparse.ArgumentParser(
+        description="Scale variables in a put file from Loci/CHEM.")
+
+    parser.add_argument("-f", "--file", action="store", dest="fname",
+                        default="put.dat",
+                        help="Name of put file to scale. (Default: put.dat)")
+    parser.add_argument("-x", "--x-scale", action="store", dest="x_scale",
+                        default=1.0, type=float,
+                        help="Factor to scale x-coordinates by. (Default: 1.0)")
+    parser.add_argument("-y", "--y-scale", action="store", dest="y_scale",
+                        default=1.0, type=float,
+                        help="Factor to scale y-coordinates by. (Default: 1.0)")
+    parser.add_argument("-z", "--z-scale", action="store", dest="z_scale",
+                        default=1.0, type=float,
+                        help="Factor to scale z-coordinates by. (Default: 1.0)")
+    parser.add_argument("-p", "--pressure-scale", action="store", dest="pressure_scale",
+                        default=1.0, type=float,
+                        help="Factor to scale pressure by. (Default: 1.0)")
+    parser.add_argument("-u", "--velocity-scale", action="store", dest="velocity_scale",
+                        default=1.0, type=float,
+                        help="Factor to scale velocity by. (Default: 1.0)")
+    parser.add_argument("-t", "--temperature-scale", action="store", dest="temperature_scale",
+                        default=1.0, type=float,
+                        help="Factor to scale temperature by. (Default: 1.0)")
+    parser.add_argument("-k", "--tke-scale", action="store", dest="tke_scale",
+                        default=1.0, type=float,
+                        help="Factor to scale tke by. (Default: 1.0)")
+    parser.add_argument("-m", "--tmuu-scale", action="store", dest="tmuu_scale",
+                        default=1.0, type=float,
+                        help="Factor to scale tmuu by. (Default: 1.0)")
+
+    args = parser.parse_args()
+
+    # get command line inputs
+    fname = args.fname
+    coordinate_scale = [args.x_scale, args.y_scale, args.z_scale]
+    velocity_scale = [args.velocity_scale, args.velocity_scale, args.velocity_scale]
+    
+    tokens = fname.split(".", 1)
+    oname = tokens[0] + "_scaled." + tokens[1]
+
+    # read file
+    data = h5py.File(fname, "r")
+
+    # write out data in hdf5 format
+    out = h5py.File(oname, "w")
+
+    # write out data that is unchanged
+    CopyGroup(data, out, "/turbulence_model")
+    CopyGroup(data, out, "/speciesNames")
+    if ("/mixture" in data):
+        CopyGroup(data, out, "/mixture")
+
+    # scale scalar data
+    ScaleScalar(data, out, "/pg", args.pressure_scale)
+    ScaleScalar(data, out, "/Pambient", args.pressure_scale)
+    ScaleScalar(data, out, "/t", args.temperature_scale)
+    ScaleScalar(data, out, "/k", args.tke_scale)
+    ScaleScalar(data, out, "/tmuu", args.tmuu_scale)
+
+    # scale vector data
+    ScaleVector(data, out, "/pos", coordinate_scale)
+    ScaleVector(data, out, "/u", velocity_scale)
+
+    # close files
+    data.close()
+    out.close()
+
+    print("Program Complete")
+
+
+if __name__ == "__main__":
+    main()

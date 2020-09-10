@@ -1,0 +1,15 @@
+# ignore temporary files
+*.~
+
+# ignore LaTex files
+*.bbl
+*.blg
+
+# ignore vscode files
+.vscode
+
+# ignore texstudio files
+*.aux
+*.pdf
+*.log
+*.gz
