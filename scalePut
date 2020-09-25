@@ -23,18 +23,17 @@ import h5py
 import argparse
 
 def ScaleScalar(fin, fout, name, scale):
-    var = fin.get(name + "/data")
-    for v in var[:]:
-        v *= scale
     CopyGroup(fin, fout, name)
+    var = fout.get(name + "/data")
+    var[:] *= scale
 
 def ScaleVector(fin, fout, name, scale):
-    var = fin.get(name + "/data")
+    CopyGroup(fin, fout, name)
+    var = fout.get(name + "/data")
     for v in var[:]:
         v[0] *= scale[0]
         v[1] *= scale[1]
         v[2] *= scale[2]
-    CopyGroup(fin, fout, name)
 
 def CopyGroup(fin, fout, name):
     group_path = fin[name].parent.name
@@ -101,8 +100,10 @@ def main():
     ScaleScalar(data, out, "/pg", args.pressure_scale)
     ScaleScalar(data, out, "/Pambient", args.pressure_scale)
     ScaleScalar(data, out, "/t", args.temperature_scale)
-    ScaleScalar(data, out, "/k", args.tke_scale)
-    ScaleScalar(data, out, "/tmuu", args.tmuu_scale)
+    if ("/k" in data):
+        ScaleScalar(data, out, "/k", args.tke_scale)
+    if ("/tmuu" in data):
+        ScaleScalar(data, out, "/tmuu", args.tmuu_scale)
 
     # scale vector data
     ScaleVector(data, out, "/pos", coordinate_scale)
